@@ -1,0 +1,6 @@
+venv/
+data/input/
+data/input.mp4
+results/output_images
+results/output.mp4
+pretrained_models/TecoGAN_4x_BD_Vimeo_iter500K.pth
