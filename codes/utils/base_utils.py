@@ -9,7 +9,7 @@ import torch
 from .dist_utils import init_dist, master_only
 
 
-def opt():
+def opt(model_name="TecoGAN_4x_BD_Vimeo_iter500K.pth"):
     opt = {
         "mode": "test",
         "gpu_ids": "1",
@@ -36,7 +36,7 @@ def opt():
                 "out_nc": 3,
                 "nf": 64,
                 "nb": 10,
-                "load_path": "pretrained_models/TecoGAN_4x_BD_Vimeo_iter500K.pth",
+                "load_path": os.path.join("pretrained_models", model_name),
             },
         },
         "test": {
