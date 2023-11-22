@@ -12,38 +12,43 @@ from .dist_utils import init_dist, master_only
 def opt(model_name="TecoGAN_4x_BD_Vimeo_iter500K.pth"):
     opt = {
         "mode": "test",
-        "gpu_ids": "1",
-        "local_rank": 1,
+        "gpu_ids": "0",
+        "local_rank": 0,
         "test_speed": False,
         "is_train": False,
-        "scale": 4,
-        "manual_seed": 0,
-        "verbose": False,
-        "dataset": {
-            "degradation": {"type": "BD", "sigma": 1.5},
-            "test": {
-                "name": "output_images",
-                "lr_seq_dir": "data",
-                "num_worker_per_gpu": 3,
-                "pin_memory": True,
+        "scale": 4,  # scale: スケールファクター（4倍）
+        "manual_seed": 0,  # manual_seed: 乱数生成のためのシード値（0）
+        "verbose": False,  # verbose: 詳細なログ出力の有無（false = 詳細ログなし）
+        "dataset": {  # データセット設定 (dataset configs)
+            "degradation": {
+                "type": "BD",
+                "sigma": 1.5,
+            },  # degradation: デグレーデーションタイプ（BD）とシグマ値（1.5）
+            "test": {  # test: テストデータセットの設定
+                "name": "output_images",  # name: データセット名（REDS）
+                "lr_seq_dir": "data",  # lr_seq_dir: 低解像度画像のディレクトリ
+                "num_worker_per_gpu": 3,  # num_worker_per_gpu: GPUごとのワーカー数。
+                "pin_memory": True,  # pin_memory: ピン留めメモリの使用（true = 使用する）
             },
         },
-        "model": {
-            "name": "TecoGAN",
-            "generator": {
-                "name": "FRNet",
-                "in_nc": 3,
+        "model": {  # モデル設定 (model configs)
+            "name": "TecoGAN",  # name: モデル名（TecoGAN）
+            "generator": {  # generator: 生成器の設定
+                "name": "FRNet",  # name: ネットワーク名（FRNet）
+                "in_nc": 3,  # in_nc, out_nc: 入出力チャンネル数
                 "out_nc": 3,
-                "nf": 64,
+                "nf": 64,  # nf, nb: ネットワーク設定
                 "nb": 10,
-                "load_path": os.path.join("pretrained_models", model_name),
+                "load_path": os.path.join(
+                    "pretrained_models", model_name
+                ),  # load_path: 事前学習済みモデルのパス
             },
         },
         "test": {
-            "save_res": True,
-            "res_dir": "results",
-            "padding_mode": "reflect",
-            "num_pad_front": 5,
+            "save_res": True,  # save_res: 生成された超解像度（SR）結果を保存するかどうか（true = 保存する）
+            "res_dir": "results",  # res_dir: 結果の保存ディレクトリ（デフォルトディレクトリを使用）
+            "padding_mode": "reflect",  # padding_mode: パディングモード
+            "num_pad_front": 5,  # num_pad_front: パディングの前方数
         },
     }
     # setup device
