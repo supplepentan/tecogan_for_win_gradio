@@ -1,8 +1,9 @@
 import gradio as gr
 import os
 import shutil
+import ffmpeg
 
-from codes.utils import base_utils, movie_utils, inference_utils
+from codes.utils import base_utils, inference_utils, movie_utils
 
 # 定数の定義
 INPUT_DIR = "data"
@@ -12,6 +13,7 @@ INPUT_MOVIE_FILENAME = "input.mp4"
 OUTPUT_DIR = "results"
 OUTPUT_IMAGES_FOLDER = "output_images"
 OUTPUT_MOVIE_FILENAME = "output.mp4"
+OUTPUT_AUDIO_FILENAME = "output_audio.mp3"
 
 
 # 学習済みモデルのリストを取得
@@ -29,23 +31,41 @@ def save_uploaded_video(input_video_file):
 
 def clean_output_directory():
     """出力ディレクトリのクリーンアップを行う関数"""
-    if os.path.exists(os.path.join(OUTPUT_DIR, OUTPUT_IMAGES_FOLDER)):
-        shutil.rmtree(os.path.join(OUTPUT_DIR, OUTPUT_IMAGES_FOLDER))
-    if os.path.exists(os.path.join(OUTPUT_DIR, OUTPUT_MOVIE_FILENAME)):
-        os.remove(os.path.join(OUTPUT_DIR, OUTPUT_MOVIE_FILENAME))
+    output_images_folder = os.path.join(OUTPUT_DIR, OUTPUT_IMAGES_FOLDER)
+    output_movie_path = os.path.join(OUTPUT_DIR, OUTPUT_MOVIE_FILENAME)
+    output_audio_path = os.path.join(OUTPUT_DIR, OUTPUT_AUDIO_FILENAME)
+
+    if os.path.exists(output_images_folder):
+        shutil.rmtree(output_images_folder)
+    if os.path.exists(output_movie_path):
+        os.remove(output_movie_path)
+    if os.path.exists(output_audio_path):
+        os.remove(output_audio_path)
 
 
 def process_video(input_video_path, model_name):
-    """ビデオ処理の主要な手順を実行する関数"""
+    video_frame_rate = movie_utils.get_video_frame_rate(input_video_path)
+
     movie_utils.extract_images_from_video(
-        input_video_path, os.path.join(INPUT_DIR, INPUT_IMAGES_FOLDER)
+        input_video_path,
+        os.path.join(INPUT_DIR, INPUT_IMAGES_FOLDER),
+        framerate=video_frame_rate,
     )
+
+    movie_utils.extract_audio_from_video(
+        input_video_path, os.path.join(OUTPUT_DIR, OUTPUT_AUDIO_FILENAME)
+    )
+
     opt = base_utils.opt(model_name=model_name)
     inference_utils.inference(opt)
+
     movie_utils.create_video_from_images(
         os.path.join(OUTPUT_DIR, OUTPUT_IMAGES_FOLDER),
         os.path.join(OUTPUT_DIR, OUTPUT_MOVIE_FILENAME),
+        audio_path=os.path.join(OUTPUT_DIR, OUTPUT_AUDIO_FILENAME),
+        framerate=video_frame_rate,
     )
+
     return os.path.join(OUTPUT_DIR, OUTPUT_MOVIE_FILENAME)
 
 
