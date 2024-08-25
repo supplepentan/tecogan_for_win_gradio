@@ -1,12 +1,17 @@
-input.mp4
+# Ignore all __pycache__ directories and .pyc files
+**/__pycache__/
+**.pyc
+
+# Ignore virtual environment directory
 venv/
+
+# Ignore specific input/output files and directories
+input.mp4
 data/input/
 data/input.mp4
-results/output_images
+results/output_images/
 results/output.mp4
 results/output_audio.mp3
-pretrained_models/TecoGAN_4x_BD_Vimeo_iter500K.pth
-pretrained_models/TecoGAN_BD_iter500000.pth
-pretrained_models/TecoGAN_BI_iter500000.pth
-pretrained_models/FRVSR_BD_iter400000.pth
-pretrained_models/FRVSR_BI_iter400000.pth
+
+# Ignore all .pth files in pretrained_models directory
+pretrained_models/*.pth
