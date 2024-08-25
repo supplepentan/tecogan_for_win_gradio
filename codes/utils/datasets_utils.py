@@ -1,31 +1,29 @@
-import os
-import os.path as osp
+from pathlib import Path
+from typing import List, Optional, Union
 import cv2
 import numpy as np
 import torch
 from torch.utils.data import Dataset
 
 
-def retrieve_files(dir, suffix="png|jpg"):
-    """retrive files with specific suffix under dir and sub-dirs recursively"""
+def retrieve_files(dir: Union[str, Path], suffix: str = "png|jpg") -> List[Path]:
+    """指定されたディレクトリとサブディレクトリ内の特定の拡張子（pngやjpg）のファイルを再帰的に取得する関数"""
 
-    def retrieve_files_recursively(dir, file_lst):
-        for d in sorted(os.listdir(dir)):
-            dd = osp.join(dir, d)
+    def retrieve_files_recursively(dir: Path, file_lst: List[Path]) -> None:
+        """指定ディレクトリ内を再帰的に探索してファイルリストを取得"""
+        for d in sorted(dir.iterdir()):
+            if d.is_dir():
+                # ディレクトリの場合、再帰的に探索
+                retrieve_files_recursively(d, file_lst)
+            elif d.suffix.lower() in [f".{s}" for s in suffix.split("|")]:
+                # 指定された拡張子に一致するファイルをリストに追加
+                file_lst.append(d)
 
-            if osp.isdir(dd):
-                retrieve_files_recursively(dd, file_lst)
-            else:
-                if osp.splitext(d)[-1].lower() in ["." + s for s in suffix]:
-                    file_lst.append(dd)
-
-    if not dir:
+    dir = Path(dir)
+    if not dir.exists():
         return []
 
-    if isinstance(suffix, str):
-        suffix = suffix.split("|")
-
-    file_lst = []
+    file_lst: List[Path] = []
     retrieve_files_recursively(dir, file_lst)
     file_lst.sort()
 
@@ -33,22 +31,26 @@ def retrieve_files(dir, suffix="png|jpg"):
 
 
 class BaseDataset(Dataset):
-    def __init__(self, data_opt, **kwargs):
-        # dict to attr
+    def __init__(self, data_opt: dict, **kwargs: Optional[dict]) -> None:
+        """基本的なデータセットクラス。設定オプションを受け取り、クラス属性として設定"""
+        # data_optの内容をクラス属性として設定
         for kw, args in data_opt.items():
             setattr(self, kw, args)
 
-        # can be used to override options defined in data_opt
+        # kwargsで指定されたオプションで上書き可能
         for kw, args in kwargs.items():
             setattr(self, kw, args)
 
-    def __len__(self):
-        pass
+    def __len__(self) -> int:
+        """データセットのサイズを返す（実装はサブクラスで行う）"""
+        raise NotImplementedError
 
-    def __getitem__(self, item):
-        pass
+    def __getitem__(self, item: int) -> torch.Tensor:
+        """指定されたインデックスのデータを返す（実装はサブクラスで行う）"""
+        raise NotImplementedError
 
-    def check_info(self, gt_keys, lr_keys):
+    def check_info(self, gt_keys: List[str], lr_keys: List[str]) -> None:
+        """GT（高解像度）とLR（低解像度）の画像リストが一致しているか確認する関数"""
         if len(gt_keys) != len(lr_keys):
             raise ValueError(
                 f"GT & LR contain different numbers of images ({len(gt_keys)}  vs. {len(lr_keys)})"
@@ -77,14 +79,19 @@ class BaseDataset(Dataset):
                 )
 
     @staticmethod
-    def init_lmdb(seq_dir):
+    def init_lmdb(seq_dir: Union[str, Path]):
+        """LMDBデータベースを初期化して読み取り専用で開く関数"""
+        import lmdb
+
+        seq_dir = Path(seq_dir)
         env = lmdb.open(
-            seq_dir, readonly=True, lock=False, readahead=False, meminit=False
+            str(seq_dir), readonly=True, lock=False, readahead=False, meminit=False
         )
         return env
 
     @staticmethod
-    def parse_lmdb_key(key):
+    def parse_lmdb_key(key: str):
+        """LMDBのキーを解析し、ビデオインデックス、サイズ、フレーム番号を抽出"""
         key_lst = key.split("_")
         idx, size, frm = key_lst[:-2], key_lst[-2], int(key_lst[-1])
         idx = "_".join(idx)
@@ -92,72 +99,75 @@ class BaseDataset(Dataset):
         return idx, size, frm
 
     @staticmethod
-    def read_lmdb_frame(env, key, size):
+    def read_lmdb_frame(env, key: str, size: tuple) -> np.ndarray:
+        """LMDBデータベースから指定されたキーのフレームを読み取る関数"""
         with env.begin(write=False) as txn:
             buf = txn.get(key.encode("ascii"))
         frm = np.frombuffer(buf, dtype=np.uint8).reshape(*size)
         return frm
 
     def crop_sequence(self, **kwargs):
+        """シーケンスをクロップする（サブクラスで実装する必要あり）"""
         pass
 
     @staticmethod
     def augment_sequence(**kwargs):
+        """シーケンスを拡張する（サブクラスで実装する必要あり）"""
         pass
 
 
 class ImageFolderDataset(BaseDataset):
-    """Folder dataset for unpaired data."""
+    """対応するペアがない（unpaired）データを扱うフォルダデータセット"""
 
-    def __init__(self, data_opt, **kwargs):
+    def __init__(self, data_opt: dict, **kwargs: Optional[dict]) -> None:
+        # 親クラス（BaseDataset）の初期化を実行
         super(ImageFolderDataset, self).__init__(data_opt, **kwargs)
 
-        # ディレクトリ内のファイル/ディレクトリを取得
-        all_items = os.listdir(self.lr_seq_dir)
+        # ディレクトリ内のアイテム（ファイルやディレクトリ）を取得
+        all_items = list(Path(self.lr_seq_dir).iterdir())
 
-        # ディレクトリのみをフィルタリング
-        self.keys = sorted(
-            [
-                item
-                for item in all_items
-                if os.path.isdir(os.path.join(self.lr_seq_dir, item))
-            ]
-        )
+        # ディレクトリのみをフィルタリングしてキーとして保持
+        self.keys = sorted([item.name for item in all_items if item.is_dir()])
 
-    def __len__(self):
+    def __len__(self) -> int:
+        """データセットのサイズを返す"""
         return len(self.keys)
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: int) -> dict:
+        """指定されたインデックスに対応するデータを返す"""
         key = self.keys[item]
 
-        # load images
+        # 画像を読み込む
         img_seq = []
-        for img_path in retrieve_files(osp.join(self.lr_seq_dir, key)):
-            img = cv2.imread(img_path)[..., ::-1].astype(np.float32) / 255.0
+        for img_path in retrieve_files(Path(self.lr_seq_dir) / key):
+            img = cv2.imread(str(img_path))[..., ::-1].astype(np.float32) / 255.0
             img_seq.append(img)
         img_seq = np.stack(img_seq)  # thwc|rgb|float32
 
-        # convert to tensor
+        # テンソルに変換
         img_tsr = torch.from_numpy(np.ascontiguousarray(img_seq))  # float32
 
-        # lr: thwc|rgb|float32
+        # lr: 低解像度画像シーケンス
         return {
             "lr": img_tsr,
             "seq_idx": key,
-            "frm_idx": sorted(os.listdir(osp.join(self.lr_seq_dir, key))),
+            "frm_idx": sorted(
+                [p.name for p in (Path(self.lr_seq_dir) / key).iterdir()]
+            ),
         }
 
 
 class PairedFolderDataset(BaseDataset):
-    """Folder dataset for paired data. It supports both BI & BD degradation."""
+    """対応するペアがある（paired）データを扱うフォルダデータセット。BI & BDの劣化モデルをサポート"""
 
-    def __init__(self, data_opt, **kwargs):
+    def __init__(self, data_opt: dict, **kwargs: Optional[dict]) -> None:
+        # 親クラス（BaseDataset）の初期化を実行
         super(PairedFolderDataset, self).__init__(data_opt, **kwargs)
 
-        # get keys from LR directory only
-        self.keys = sorted(os.listdir(self.lr_seq_dir))
+        # 低解像度（LR）ディレクトリ内のキーを取得
+        self.keys = sorted([p.name for p in Path(self.lr_seq_dir).iterdir()])
 
-        # filter keys (if necessary)
+        # 必要に応じてキーをフィルタリング
         sel_keys = set(self.keys)
         if hasattr(self, "filter_file") and self.filter_file is not None:
             with open(self.filter_file, "r") as f:
@@ -166,40 +176,47 @@ class PairedFolderDataset(BaseDataset):
             sel_keys = set(self.filter_list)
         self.keys = sorted(list(sel_keys & set(self.keys)))
 
-    def __len__(self):
+    def __len__(self) -> int:
+        """データセットのサイズを返す"""
         return len(self.keys)
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: int) -> dict:
+        """指定されたインデックスに対応するデータを返す"""
         key = self.keys[item]
 
-        # load lr frames only
+        # 低解像度フレームのみを読み込む
         lr_seq = []
-        for frm_path in retrieve_files(osp.join(self.lr_seq_dir, key)):
-            frm = cv2.imread(frm_path)[..., ::-1].astype(np.float32) / 255.0
+        for frm_path in retrieve_files(Path(self.lr_seq_dir) / key):
+            frm = (
+                cv2.imread(str(frm_path))[..., ::-1].astype(np.float32) / 255.0
+            )  # BGRからRGBに変換
             lr_seq.append(frm)
-        lr_seq = np.stack(lr_seq)  # thwc|rgb|float32
+        lr_seq = np.stack(lr_seq)  # 画像シーケンスをスタック（thwc形式）
 
-        # convert to tensor
-        lr_tsr = torch.from_numpy(np.ascontiguousarray(lr_seq))  # float32
+        # テンソルに変換
+        lr_tsr = torch.from_numpy(np.ascontiguousarray(lr_seq))  # float32形式
 
-        # lr: thwc|rgb|float32
+        # lr: 低解像度画像シーケンス
         return {
             "lr": lr_tsr,
             "seq_idx": key,
-            "frm_idx": sorted(os.listdir(osp.join(self.lr_seq_dir, key))),
+            "frm_idx": sorted(
+                [p.name for p in (Path(self.lr_seq_dir) / key).iterdir()]
+            ),
         }
 
 
 class UnpairedFolderDataset(BaseDataset):
-    """Folder dataset for unpaired data (for BD degradation)"""
+    """対応するペアがない（unpaired）データを扱うフォルダデータセット（BD劣化用）"""
 
-    def __init__(self, data_opt, **kwargs):
+    def __init__(self, data_opt: dict, **kwargs: Optional[dict]) -> None:
+        # 親クラス（BaseDataset）の初期化を実行
         super(UnpairedFolderDataset, self).__init__(data_opt, **kwargs)
 
-        # get keys
-        self.keys = sorted(os.listdir(self.gt_seq_dir))
+        # 高解像度（GT）ディレクトリ内のキーを取得
+        self.keys = sorted([p.name for p in Path(self.gt_seq_dir).iterdir()])
 
-        # filter keys
+        # 必要に応じてキーをフィルタリング
         sel_keys = set(self.keys)
         if hasattr(self, "filter_file") and self.filter_file is not None:
             with open(self.filter_file, "r") as f:
@@ -208,25 +225,29 @@ class UnpairedFolderDataset(BaseDataset):
             sel_keys = set(self.filter_list)
         self.keys = sorted(list(sel_keys & set(self.keys)))
 
-    def __len__(self):
+    def __len__(self) -> int:
+        """データセットのサイズを返す"""
         return len(self.keys)
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: int) -> dict:
+        """指定されたインデックスに対応するデータを返す"""
         key = self.keys[item]
 
-        # load gt frames
+        # 高解像度フレームを読み込む
         gt_seq = []
-        for frm_path in retrieve_files(osp.join(self.gt_seq_dir, key)):
-            gt_frm = cv2.imread(frm_path)[..., ::-1]
+        for frm_path in retrieve_files(Path(self.gt_seq_dir) / key):
+            gt_frm = cv2.imread(str(frm_path))[..., ::-1]  # BGRからRGBに変換
             gt_seq.append(gt_frm)
-        gt_seq = np.stack(gt_seq)  # thwc|rgb|uint8
+        gt_seq = np.stack(gt_seq)  # 画像シーケンスをスタック（thwc形式）
 
-        # convert to tensor
-        gt_tsr = torch.from_numpy(np.ascontiguousarray(gt_seq))  # uint8
+        # テンソルに変換
+        gt_tsr = torch.from_numpy(np.ascontiguousarray(gt_seq))  # uint8形式
 
-        # gt: thwc|rgb|uint8
+        # gt: 高解像度画像シーケンス
         return {
             "gt": gt_tsr,
             "seq_idx": key,
-            "frm_idx": sorted(os.listdir(osp.join(self.gt_seq_dir, key))),
+            "frm_idx": sorted(
+                [p.name for p in (Path(self.gt_seq_dir) / key).iterdir()]
+            ),
         }

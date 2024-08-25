@@ -1,14 +1,17 @@
 import functools
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from typing import List, Union, Optional
 
 
 # ===----------------- utility functions -------------------- #
-def initialize_weights(net_l, init_type='kaiming', scale=1):
-    """ Modify from BasicSR/MMSR
-    """
+def initialize_weights(
+    net_l: Union[nn.Module, List[nn.Module]],
+    init_type: str = "kaiming",
+    scale: float = 1.0,
+) -> None:
+    """Modify from BasicSR/MMSR"""
 
     if not isinstance(net_l, list):
         net_l = [net_l]
@@ -16,12 +19,14 @@ def initialize_weights(net_l, init_type='kaiming', scale=1):
     for net in net_l:
         for m in net.modules():
             if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d, nn.Linear)):
-                if init_type == 'xavier':
+                if init_type == "xavier":
                     nn.init.xavier_uniform_(m.weight)
-                elif init_type == 'kaiming':
-                    nn.init.kaiming_normal_(m.weight, a=0, mode='fan_in')
+                elif init_type == "kaiming":
+                    nn.init.kaiming_normal_(m.weight, a=0, mode="fan_in")
                 else:
-                    raise NotImplementedError(init_type)
+                    raise NotImplementedError(
+                        f"Initialization method {init_type} is not implemented"
+                    )
 
                 m.weight.data *= scale  # to stabilize training
 
@@ -33,9 +38,8 @@ def initialize_weights(net_l, init_type='kaiming', scale=1):
                 nn.init.constant_(m.bias.data, 0)
 
 
-def space_to_depth(x, scale):
-    """ Equivalent to tf.space_to_depth()
-    """
+def space_to_depth(x: torch.Tensor, scale: int) -> torch.Tensor:
+    """Equivalent to tf.space_to_depth()"""
 
     n, c, in_h, in_w = x.size()
     out_h, out_w = in_h // scale, in_w // scale
@@ -47,13 +51,18 @@ def space_to_depth(x, scale):
     return output
 
 
-def backward_warp(x, flow, mode='bilinear', padding_mode='border'):
-    """ Backward warp `x` according to `flow`
+def backward_warp(
+    x: torch.Tensor,
+    flow: torch.Tensor,
+    mode: str = "bilinear",
+    padding_mode: str = "border",
+) -> torch.Tensor:
+    """Backward warp `x` according to `flow`
 
-        Both x and flow are pytorch tensor in shape `nchw` and `n2hw`
+    Both x and flow are pytorch tensor in shape `nchw` and `n2hw`
 
-        Reference:
-            https://github.com/sniklaus/pytorch-spynet/blob/master/run.py#L41
+    Reference:
+        https://github.com/sniklaus/pytorch-spynet/blob/master/run.py#L41
     """
 
     n, c, h, w = x.size()
@@ -64,93 +73,97 @@ def backward_warp(x, flow, mode='bilinear', padding_mode='border'):
     grid = torch.cat([iu, iv], 1).to(flow.device)
 
     # normalize flow to [-1, 1]
-    flow = torch.cat([
-        flow[:, 0:1, ...] / ((w - 1.0) / 2.0),
-        flow[:, 1:2, ...] / ((h - 1.0) / 2.0)], dim=1)
+    flow = torch.cat(
+        [flow[:, 0:1, ...] / ((w - 1.0) / 2.0), flow[:, 1:2, ...] / ((h - 1.0) / 2.0)],
+        dim=1,
+    )
 
     # add flow to grid and reshape to nhw2
     grid = (grid + flow).permute(0, 2, 3, 1)
 
     # bilinear sampling
     # Note: `align_corners` is set to `True` by default for PyTorch version < 1.4.0
-    if int(''.join(torch.__version__.split('.')[:2])) >= 14:
+    if int("".join(torch.__version__.split(".")[:2])) >= 14:
         output = F.grid_sample(
-            x, grid, mode=mode, padding_mode=padding_mode, align_corners=True)
+            x, grid, mode=mode, padding_mode=padding_mode, align_corners=True
+        )
     else:
         output = F.grid_sample(x, grid, mode=mode, padding_mode=padding_mode)
 
     return output
 
 
-def get_upsampling_func(scale=4, degradation='BI'):
-    if degradation == 'BI':
+def get_upsampling_func(
+    scale: int = 4, degradation: str = "BI"
+) -> Union[functools.partial, nn.Module]:
+    if degradation == "BI":
         upsample_func = functools.partial(
-            F.interpolate, scale_factor=scale, mode='bilinear',
-            align_corners=False)
-
-    elif degradation == 'BD':
+            F.interpolate, scale_factor=scale, mode="bilinear", align_corners=False
+        )
+    elif degradation == "BD":
         upsample_func = BicubicUpsampler(scale_factor=scale)
-
     else:
-        raise ValueError(f'Unrecognized degradation type: {degradation}')
+        raise ValueError(f"Unrecognized degradation type: {degradation}")
 
     return upsample_func
 
 
 # --------------------- utility classes --------------------- #
 class BicubicUpsampler(nn.Module):
-    """ Bicubic upsampling function with similar behavior to that in TecoGAN-Tensorflow
+    """Bicubic upsampling function with similar behavior to that in TecoGAN-Tensorflow
 
-        Note:
-            This function is different from torch.nn.functional.interpolate and matlab's imresize
-            in terms of the bicubic kernel and the sampling strategy
+    Note:
+        This function is different from torch.nn.functional.interpolate and matlab's imresize
+        in terms of the bicubic kernel and the sampling strategy
 
-        References:
-            http://verona.fi-p.unam.mx/boris/practicas/CubConvInterp.pdf
-            https://stackoverflow.com/questions/26823140/imresize-trying-to-understand-the-bicubic-interpolation
+    References:
+        http://verona.fi-p.unam.mx/boris/practicas/CubConvInterp.pdf
+        https://stackoverflow.com/questions/26823140/imresize-trying-to-understand-the-bicubic-interpolation
     """
 
-    def __init__(self, scale_factor, a=-0.75):
+    def __init__(self, scale_factor: int, a: float = -0.75):
         super(BicubicUpsampler, self).__init__()
 
         # calculate weights (according to Eq.(6) in the reference paper)
-        cubic = torch.FloatTensor([
-            [0, a, -2*a, a],
-            [1, 0, -(a + 3), a + 2],
-            [0, -a, (2*a + 3), -(a + 2)],
-            [0, 0, a, -a]
-        ])
+        cubic = torch.FloatTensor(
+            [
+                [0, a, -2 * a, a],
+                [1, 0, -(a + 3), a + 2],
+                [0, -a, (2 * a + 3), -(a + 2)],
+                [0, 0, a, -a],
+            ]
+        )
 
         kernels = [
             torch.matmul(cubic, torch.FloatTensor([1, s, s**2, s**3]))
-            for s in [1.0*d/scale_factor for d in range(scale_factor)]
+            for s in [1.0 * d / scale_factor for d in range(scale_factor)]
         ]  # s = x - floor(x)
 
         # register parameters
         self.scale_factor = scale_factor
-        self.register_buffer('kernels', torch.stack(kernels))  # size: (f, 4)
+        self.register_buffer("kernels", torch.stack(kernels))  # size: (f, 4)
 
-    def forward(self, input):
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
         n, c, h, w = input.size()
         f = self.scale_factor
 
         # merge n&c
-        input = input.reshape(n*c, 1, h, w)
+        input = input.reshape(n * c, 1, h, w)
 
         # pad input (left, right, top, bottom)
-        input = F.pad(input, (1, 2, 1, 2), mode='replicate')
+        input = F.pad(input, (1, 2, 1, 2), mode="replicate")
 
         # calculate output (vertical expansion)
         kernel_h = self.kernels.view(f, 1, 4, 1)
         output = F.conv2d(input, kernel_h, stride=1, padding=0)
-        output = output.permute(0, 2, 1, 3).reshape(n*c, 1, f*h, w + 3)
+        output = output.permute(0, 2, 1, 3).reshape(n * c, 1, f * h, w + 3)
 
         # calculate output (horizontal expansion)
         kernel_w = self.kernels.view(f, 1, 1, 4)
         output = F.conv2d(output, kernel_w, stride=1, padding=0)
-        output = output.permute(0, 2, 3, 1).reshape(n*c, 1, f*h, f*w)
+        output = output.permute(0, 2, 3, 1).reshape(n * c, 1, f * h, f * w)
 
         # split n&c
-        output = output.reshape(n, c, f*h, f*w)
+        output = output.reshape(n, c, f * h, f * w)
 
         return output

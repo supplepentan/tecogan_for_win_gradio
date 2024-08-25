@@ -1,6 +1,5 @@
-import os
-import os.path as osp
-
+from pathlib import Path
+from typing import List, Optional, Union
 from scipy import signal
 import cv2
 import numpy as np
@@ -8,7 +7,17 @@ import torch
 import torch.nn.functional as F
 
 
-def create_kernel(sigma, ksize=None):
+def create_kernel(sigma: float, ksize: Optional[int] = None) -> torch.Tensor:
+    """
+    ガウスカーネルを作成する関数。
+
+    Parameters:
+        :param sigma: ガウスカーネルの標準偏差。カーネルの広がりを決定する。
+        :param ksize: カーネルのサイズ。指定しない場合、sigmaに基づいて自動的に計算される。
+
+    Returns:
+        :return: ガウスカーネルを含む3チャンネルのテンソル。RGBの各チャンネルに対応。
+    """
     if ksize is None:
         ksize = 1 + 2 * int(sigma * 3.0)
 
@@ -25,46 +34,44 @@ def create_kernel(sigma, ksize=None):
         ]
     )
 
-    kernel = torch.from_numpy(kernel)
-
-    return kernel
+    return torch.from_numpy(kernel)
 
 
-def downsample_bd(data, kernel, scale, pad_data):
+def downsample_bd(
+    data: torch.Tensor, kernel: torch.Tensor, scale: int, pad_data: bool
+) -> torch.Tensor:
     """
-    Note:
-        1. `data` should be torch.FloatTensor (data range 0~1) in shape [nchw]
-        2. `pad_data` should be enabled in model testing
-        3. This function is device agnostic, i.e., data/kernel could be on cpu or gpu
-    """
-
-    if pad_data:
-        # compute padding params
-        kernel_h, kernel_w = kernel.shape[-2:]
-        pad_h, pad_w = kernel_h - 1, kernel_w - 1
-        pad_t = pad_h // 2
-        pad_b = pad_h - pad_t
-        pad_l = pad_w // 2
-        pad_r = pad_w - pad_l
-
-        # pad data
-        data = F.pad(data, (pad_l, pad_r, pad_t, pad_b), "reflect")
-
-    # blur + down sample
-    data = F.conv2d(data, kernel, stride=scale, bias=None, padding=0)
-
-    return data
-
-
-def rgb_to_ycbcr(img):
-    """Coefficients are taken from the  official codes of DUF-VSR
-    This conversion is also the same as that in BasicSR
+    画像をダウンサンプリングする関数。
 
     Parameters:
-        :param  img: rgb image in type np.uint8
-        :return: ycbcr image in type np.uint8
-    """
+        :param data: ダウンサンプリングする画像データ。torch.FloatTensor形式、形状は [nchw]。
+        :param kernel: ダウンサンプリングに使用するカーネル。
+        :param scale: ダウンサンプリングスケール（倍率）。
+        :param pad_data: パディングを行うかどうかのフラグ。
 
+    Returns:
+        :return: ダウンサンプリングされた画像データ。
+    """
+    if pad_data:
+        kernel_h, kernel_w = kernel.shape[-2:]
+        pad_h, pad_w = kernel_h - 1, kernel_w - 1
+        pad_t, pad_b = pad_h // 2, pad_h - pad_h // 2
+        pad_l, pad_r = pad_w // 2, pad_w - pad_w // 2
+        data = F.pad(data, (pad_l, pad_r, pad_t, pad_b), "reflect")
+
+    return F.conv2d(data, kernel, stride=scale, bias=None, padding=0)
+
+
+def rgb_to_ycbcr(img: np.ndarray) -> np.ndarray:
+    """
+    RGB画像をYCbCrフォーマットに変換する関数。
+
+    Parameters:
+        :param img: RGB画像 (np.uint8形式)。
+
+    Returns:
+        :return: YCbCrフォーマットに変換された画像 (np.uint8形式)。
+    """
     T = np.array(
         [
             [0.256788235294118, -0.148223529411765, 0.439215686274510],
@@ -73,46 +80,53 @@ def rgb_to_ycbcr(img):
         ],
         dtype=np.float64,
     )
-
     O = np.array([16, 128, 128], dtype=np.float64)
 
     img = img.astype(np.float64)
     res = np.matmul(img, T) + O
-    res = res.clip(0, 255).round().astype(np.uint8)
-
-    return res
+    return res.clip(0, 255).round().astype(np.uint8)
 
 
-def float32_to_uint8(inputs):
-    """Convert np.float32 array to np.uint8
+def float32_to_uint8(inputs: np.ndarray) -> np.ndarray:
+    """
+    np.float32形式の配列をnp.uint8形式に変換する関数。
 
     Parameters:
-        :param input: np.float32, (NT)CHW, [0, 1]
-        :return: np.uint8, (NT)CHW, [0, 255]
+        :param inputs: np.float32形式の配列 (NT)CHW、値範囲 [0, 1]。
+
+    Returns:
+        :return: np.uint8形式の配列 (NT)CHW、値範囲 [0, 255]。
     """
     return np.uint8(np.clip(np.round(inputs * 255), 0, 255))
 
 
-def save_sequence(seq_dir, seq_data, frm_idx_lst=None, to_bgr=False):
-    """Save each frame of a sequence to .png image in seq_dir
+def save_sequence(
+    seq_dir: Union[str, Path],
+    seq_data: np.ndarray,
+    frm_idx_lst: Optional[List[str]] = None,
+    to_bgr: bool = False,
+) -> None:
+    """
+    画像シーケンスを指定されたディレクトリに保存する関数。
 
     Parameters:
-        :param seq_dir: dir to save results
-        :param seq_data: sequence with shape thwc|uint8
-        :param frm_idx_lst: specify filename for each frame to be saved
-        :param to_bgr: whether to flip color channels
+        :param seq_dir: 画像を保存するディレクトリ。
+        :param seq_data: 保存する画像シーケンスデータ、形状は thwc|uint8。
+        :param frm_idx_lst: 各フレームのファイル名リスト（指定がない場合はデフォルトの連番を使用）。
+        :param to_bgr: Trueの場合、画像をRGBからBGRに変換して保存。
+
+    Returns:
+        なし
     """
+    seq_dir = Path(seq_dir)
 
     if to_bgr:
-        seq_data = seq_data[..., ::-1]  # rgb2bgr
+        seq_data = seq_data[..., ::-1]
 
-    # use default frm_idx_lst is not specified
     tot_frm = len(seq_data)
     if frm_idx_lst is None:
-        frm_idx_lst = ["{:04d}.png".format(i) for i in range(tot_frm)]
+        frm_idx_lst = [f"{i:04d}.png" for i in range(tot_frm)]
 
-    # save for each frame
-    print("=" * 40, seq_dir)
-    os.makedirs(seq_dir, exist_ok=True)
+    seq_dir.mkdir(parents=True, exist_ok=True)
     for i in range(tot_frm):
-        cv2.imwrite(osp.join(seq_dir, frm_idx_lst[i]), seq_data[i])
+        cv2.imwrite(str(seq_dir / frm_idx_lst[i]), seq_data[i])

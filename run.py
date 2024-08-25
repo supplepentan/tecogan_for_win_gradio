@@ -1,32 +1,36 @@
-import os
+# run.py
+from pathlib import Path
 import shutil
-
+from config import INPUT_DIR, INPUT_IMAGES_FOLDER, INPUT_MOVIE_FILENAME
+from config import OUTPUT_DIR, OUTPUT_IMAGES_FOLDER, OUTPUT_MOVIE_FILENAME
 from codes.utils import base_utils, movie_utils, inference_utils
 
-# 定数の定義
-INPUT_DIR = "data"
-INPUT_IMAGES_FOLDER = "input"
-INPUT_MOVIE_FILENAME = "input.mp4"
-
-OUTPUT_DIR = "results"
-OUTPUT_IMAGES_FOLDER = "output_images"
-OUTPUT_MOVIE_FILENAME = "output.mp4"
+input_dir = Path(INPUT_DIR)
+input_images_folder = Path(INPUT_IMAGES_FOLDER)
+input_movie_filename = Path(INPUT_MOVIE_FILENAME)
+output_dir = Path(OUTPUT_DIR)
+output_images_folder = Path(OUTPUT_IMAGES_FOLDER)
+output_movie_filename = Path(OUTPUT_MOVIE_FILENAME)
 
 
 def clean_output_directory():
     """出力ディレクトリをクリーンアップします。"""
-    if os.path.exists(os.path.join(OUTPUT_DIR, OUTPUT_IMAGES_FOLDER)):
-        shutil.rmtree(os.path.join(OUTPUT_DIR, OUTPUT_IMAGES_FOLDER))
-    if os.path.exists(os.path.join(OUTPUT_DIR, OUTPUT_MOVIE_FILENAME)):
-        os.remove(os.path.join(OUTPUT_DIR, OUTPUT_MOVIE_FILENAME))
+    output_images_path = output_dir.joinpath(output_images_folder)
+    output_movie_path = output_dir.joinpath(output_movie_filename)
+
+    if output_images_path.exists():
+        shutil.rmtree(output_images_path)
+
+    if output_movie_path.exists():
+        output_movie_path.unlink()
 
 
 def super_resolution():
     """ビデオ処理の主要な手順を実行します。"""
-    input_video_path = os.path.join(INPUT_DIR, INPUT_MOVIE_FILENAME)
-    input_images_path = os.path.join(INPUT_DIR, INPUT_IMAGES_FOLDER)
-    output_video_path = os.path.join(OUTPUT_DIR, OUTPUT_MOVIE_FILENAME)
-    output_images_path = os.path.join(OUTPUT_DIR, OUTPUT_IMAGES_FOLDER)
+    input_video_path = INPUT_DIR.joinpath(INPUT_MOVIE_FILENAME)
+    input_images_path = INPUT_DIR.joinpath(INPUT_IMAGES_FOLDER)
+    output_video_path = output_dir.joinpath(output_movie_filename)
+    output_images_path = output_dir.joinpath(output_images_folder)
 
     # ビデオから画像への変換
     movie_utils.extract_images_from_video(input_video_path, input_images_path)

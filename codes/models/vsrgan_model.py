@@ -1,8 +1,9 @@
+# vsrgan_model.py
 from collections import OrderedDict
-
 import torch
 import torch.optim as optim
 import torch.distributed as dist
+from typing import Dict, Any, Optional
 
 from .vsr_model import VSRModel
 from .networks import define_generator, define_discriminator
@@ -14,13 +15,13 @@ from codes.utils import base_utils, net_utils, dist_utils
 class VSRGANModel(VSRModel):
     """A model wrapper for subjective video super-resolution"""
 
-    def __init__(self, opt):
+    def __init__(self, opt: Dict[str, Any]) -> None:
         super(VSRGANModel, self).__init__(opt)
 
         if self.is_train:
             self.cnt_upd_D = 0
 
-    def set_networks(self):
+    def set_networks(self) -> None:
         # define generator
         self.net_G = define_generator(self.opt)
         self.net_G = self.model_to_device(self.net_G)
@@ -31,10 +32,10 @@ class VSRGANModel(VSRModel):
         )
 
         # load generator
-        load_path_G = self.opt["model"]["generator"].get("load_path", "")
+        load_path_G: Optional[str] = self.opt["model"]["generator"].get("load_path", "")
         if load_path_G:
             self.load_network(self.net_G, load_path_G)
-            base_utils.log_info("Load generator from: {}".format(load_path_G))
+            base_utils.log_info(f"Load generator from: {load_path_G}")
 
         if self.is_train:
             # define discriminator
@@ -47,12 +48,14 @@ class VSRGANModel(VSRModel):
             )
 
             # load discriminator
-            load_path_D = self.opt["model"]["discriminator"].get("load_path", "")
+            load_path_D: Optional[str] = self.opt["model"]["discriminator"].get(
+                "load_path", ""
+            )
             if load_path_D:
                 self.load_network(self.net_D, load_path_D)
-                base_utils.log_info("Load discriminator from: {}".format(load_path_D))
+                base_utils.log_info(f"Load discriminator from: {load_path_D}")
 
-    def set_criterions(self):
+    def set_criterions(self) -> None:
         # pixel criterion
         self.pix_crit = define_criterion(self.opt["train"].get("pixel_crit"))
 
@@ -76,7 +79,7 @@ class VSRGANModel(VSRModel):
         # gan criterion
         self.gan_crit = define_criterion(self.opt["train"].get("gan_crit"))
 
-    def set_optimizers(self):
+    def set_optimizers(self) -> None:
         # set optimizer for net_G
         self.optim_G = optim.Adam(
             self.net_G.parameters(),
@@ -93,7 +96,7 @@ class VSRGANModel(VSRModel):
             betas=self.opt["train"]["discriminator"].get("betas", (0.9, 0.999)),
         )
 
-    def set_lr_schedules(self):
+    def set_lr_schedules(self) -> None:
         # set lr schedules for net_G
         self.sched_G = define_lr_schedule(
             self.opt["train"]["generator"].get("lr_schedule"), self.optim_G
@@ -104,7 +107,7 @@ class VSRGANModel(VSRModel):
             self.opt["train"]["discriminator"].get("lr_schedule"), self.optim_D
         )
 
-    def train(self):
+    def train(self) -> None:
         # === prepare data === #
         lr_data, gt_data = self.lr_data, self.gt_data
 
@@ -296,6 +299,6 @@ class VSRGANModel(VSRModel):
         loss_G.backward()
         self.optim_G.step()
 
-    def save(self, current_iter):
+    def save(self, current_iter: int) -> None:
         self.save_network(self.net_G, "G", current_iter)
         self.save_network(self.net_D, "D", current_iter)

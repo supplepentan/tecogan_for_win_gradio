@@ -1,7 +1,9 @@
+# vsr_model.py
 from collections import OrderedDict
-
+from pathlib import Path
 import torch
 import torch.optim as optim
+from typing import Dict, Any, Optional
 
 from .base_model import BaseModel
 from .networks import define_generator
@@ -12,7 +14,7 @@ from codes.utils import base_utils, net_utils, data_utils
 class VSRModel(BaseModel):
     """A model wrapper for objective video super-resolution"""
 
-    def __init__(self, opt):
+    def __init__(self, opt: Dict[str, Any]) -> None:
         super(VSRModel, self).__init__(opt)
 
         # define network
@@ -24,7 +26,7 @@ class VSRModel(BaseModel):
             self.set_optimizers()
             self.set_lr_schedules()
 
-    def set_networks(self):
+    def set_networks(self) -> None:
         # define generator
         self.net_G = define_generator(self.opt)
         self.net_G = self.model_to_device(self.net_G)
@@ -35,19 +37,19 @@ class VSRModel(BaseModel):
         )
 
         # load generator
-        load_path_G = self.opt["model"]["generator"].get("load_path")
+        load_path_G: Optional[Path] = self.opt["model"]["generator"].get("load_path")
         if load_path_G is not None:
             self.load_network(self.net_G, load_path_G)
             base_utils.log_info(f"Load generator from: {load_path_G}")
 
-    def set_criterions(self):
+    def set_criterions(self) -> None:
         # pixel criterion
         self.pix_crit = define_criterion(self.opt["train"].get("pixel_crit"))
 
         # warping criterion
         self.warp_crit = define_criterion(self.opt["train"].get("warping_crit"))
 
-    def set_optimizers(self):
+    def set_optimizers(self) -> None:
         self.optim_G = optim.Adam(
             self.net_G.parameters(),
             lr=self.opt["train"]["generator"]["lr"],
@@ -55,12 +57,12 @@ class VSRModel(BaseModel):
             betas=self.opt["train"]["generator"].get("betas", (0.9, 0.999)),
         )
 
-    def set_lr_schedules(self):
+    def set_lr_schedules(self) -> None:
         self.sched_G = define_lr_schedule(
             self.opt["train"]["generator"].get("lr_schedule"), self.optim_G
         )
 
-    def train(self):
+    def train(self) -> None:
         # === initialize === #
         self.net_G.train()
         self.optim_G.zero_grad()
@@ -96,10 +98,10 @@ class VSRModel(BaseModel):
         loss_G.backward()
         self.optim_G.step()
 
-    def infer(self):
+    def infer(self) -> torch.Tensor:
         """Infer the `lr_data` sequence
 
-        :return: np.ndarray sequence in type [uint8] and shape [thwc]
+        :return: torch.Tensor sequence in type [uint8] and shape [thwc]
         """
 
         lr_data = self.lr_data
@@ -114,5 +116,5 @@ class VSRModel(BaseModel):
 
         return hr_seq
 
-    def save(self, current_iter):
+    def save(self, current_iter: int) -> None:
         self.save_network(self.net_G, "G", current_iter)
