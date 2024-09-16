@@ -34,6 +34,7 @@ def inference(opt: Dict[str, Any]) -> None:
                 continue
 
             ds_name = opt["dataset"][dataset_idx]["name"]
+            print("ds_name:", ds_name)
             base_utils.log_info(
                 f"Testing on {ds_name} dataset"
             )  # テストデータセット名をログに記録
@@ -63,9 +64,12 @@ def inference(opt: Dict[str, Any]) -> None:
                 # 推論結果を保存
                 if opt["test"]["save_res"]:
                     res_dir = Path(opt["test"]["res_dir"]) / ds_name
+                    print("res_dir:", res_dir)  # output\resolved_images
                     res_seq_dir = res_dir / data["seq_idx"]
+                    print("data['seq_idx]:", data["seq_idx"])
+                    print("res_seq_dir:", res_seq_dir)  # output\resolved_images\input
                     data_utils.save_sequence(
-                        str(res_seq_dir), hr_seq, data["frm_idx"], to_bgr=True
+                        str(res_dir), hr_seq, data["frm_idx"], to_bgr=True
                     )
 
             base_utils.log_info("-" * 40)  # 区切り線をログに出力

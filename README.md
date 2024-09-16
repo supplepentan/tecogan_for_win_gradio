@@ -8,6 +8,7 @@ browser app with only inference function using Gradio. Please refer to the offic
 ### Updates
 
 - 11/2023: Release TecoGAN with Gradio on Windows environment.
+- 09/2024: Add command mode and web mode.
 
 #### Original TecoGAN-PyTorch
 

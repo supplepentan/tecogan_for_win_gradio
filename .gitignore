@@ -1,17 +1,17 @@
 # Ignore all __pycache__ directories and .pyc files
 **/__pycache__/
-**.pyc
+**/**/__pycache__/
+*.pyc
 
 # Ignore virtual environment directory
 venv/
 
 # Ignore specific input/output files and directories
-input.mp4
-data/input/
-data/input.mp4
-results/output_images/
-results/output.mp4
-results/output_audio.mp3
+data/
+input_dir_cmd
+output_dir_cmd
+input_dir_web
+output_dir_web
 
 # Ignore all .pth files in pretrained_models directory
 pretrained_models/*.pth

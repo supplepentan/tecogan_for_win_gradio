@@ -1,10 +1,43 @@
-INPUT_DIRECTORYNAME = "data"
-INPUT_IMAGES_DIRECTORYNAME = "input"
-INPUT_MOVIE_FILENAME = "input.mp4"
+from pathlib import Path
 
-OUTPUT_DIRECTORYNAME = "results"
-OUTPUT_IMAGES_DIRECTORYNAME = "output_images"
-OUTPUT_MOVIE_FILENAME = "output.mp4"
-OUTPUT_AUDIO_FILENAME = "output_audio.mp3"
 
-PRETRAINED_MODELS_DIRECTORY = "pretrained_models"
+class ConfigBase:
+    INPUT_DIRECTORY = "input"
+    INPUT_MOVIE_FILE = "input_movie.mp4"
+    OUTPUT_DIRECTORY = "output"
+    IMAGES_DIRECGORY = "images"
+    PRETRAINED_MODELS_DIRECTORY = "pretrained_models"
+
+
+class ConfigCmd(ConfigBase):
+    PRETRAINED_MODEL = "TecoGAN_4x_BD_REDS_iter500K.pth"
+
+
+class ConfigWeb(ConfigBase):
+    pass
+
+
+"""
+cmd:
+  input:
+    directory_name: "input_dir"
+    images_directory_name: "images"
+    movie_file_name: "input_movie.mp4"
+  output:
+    directory_name: "output_dir"
+    movie_file_name: "output_movie.mp4"
+    audio_file_name: "output_audio.wav"
+  pretrained_models_directory: "pretrained_models/TecoGAN_4x_BD_REDS_iter500K.pth"
+
+web:
+  input:
+    directory_name: "input_dir"
+    images_directory_name: "images"
+    movie_file_name: "input_movie.mp4"
+  output:
+    directory_name: "output_dir"
+    movie_file_name: "output_movie.mp4"
+    audio_file_name: "output_audio.wav"
+
+pretrained_models_directory: "pretrained_models"
+"""

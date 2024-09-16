@@ -1,0 +1,22 @@
+cmd:
+  input:
+    directory_name: "input_dir_cmd"
+    images_directory_name: "images"
+    movie_file_name: "input_movie.mp4"
+  output:
+    directory_name: "output_dir_cmd"
+    movie_file_name: "output_movie.mp4"
+    audio_file_name: "output_audio.wav"
+  pretrained_models_directory: "pretrained_models/TecoGAN_4x_BD_REDS_iter500K.pth"
+
+web:
+  input:
+    directory_name: "input_dir_web"
+    images_directory_name: "images"
+    movie_file_name: "input_movie.mp4"
+  output:
+    directory_name: "output_dir_web"
+    movie_file_name: "output_movie.mp4"
+    audio_file_name: "output_audio.wav"
+
+pretrained_models_directory: "pretrained_models"

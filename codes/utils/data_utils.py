@@ -129,4 +129,5 @@ def save_sequence(
 
     seq_dir.mkdir(parents=True, exist_ok=True)
     for i in range(tot_frm):
+        print(str(seq_dir / frm_idx_lst[i]))
         cv2.imwrite(str(seq_dir / frm_idx_lst[i]), seq_data[i])

@@ -8,7 +8,7 @@ from typing import List, Dict, Any, Optional
 from .dist_utils import init_dist, master_only
 
 
-def opt(model_name: str = "TecoGAN_4x_BD_Vimeo_iter500K.pth") -> Dict[str, Any]:
+def opt(output_directory, resolved_images_directory, model) -> Dict[str, Any]:
     opt: Dict[str, Any] = {
         "mode": "test",
         "gpu_ids": "0",
@@ -21,7 +21,7 @@ def opt(model_name: str = "TecoGAN_4x_BD_Vimeo_iter500K.pth") -> Dict[str, Any]:
         "dataset": {
             "degradation": {"type": "BD", "sigma": 1.5},
             "test": {
-                "name": "output_images",
+                "name": str(Path(resolved_images_directory).name),
                 "lr_seq_dir": "data",
                 "num_worker_per_gpu": 3,
                 "pin_memory": True,
@@ -35,12 +35,12 @@ def opt(model_name: str = "TecoGAN_4x_BD_Vimeo_iter500K.pth") -> Dict[str, Any]:
                 "out_nc": 3,
                 "nf": 64,
                 "nb": 10,
-                "load_path": Path("pretrained_models") / model_name,
+                "load_path": model,
             },
         },
         "test": {
             "save_res": True,
-            "res_dir": "results",
+            "res_dir": output_directory,
             "padding_mode": "reflect",
             "num_pad_front": 5,
         },
