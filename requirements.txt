@@ -1,9 +1,24 @@
+# It is strongly recommended to specify versions for all packages to ensure reproducibility.
+# For example: package_name==1.2.3
+#
+# PyTorch and torchvision must be installed separately according to your CUDA version.
+# Please refer to README.md or https://pytorch.org/get-started/locally/ for instructions.
+
+numpy
+matplotlib
 opencv-python
+PyYAML # or pyyaml, ensure consistency with your project's actual import
+lmdb
 gradio
 ffmpeg-python
 scipy
 scikit-image
+tqdm
 IPython
+omegaconf
+# PyTorch and torchvision installation lines are commented out as per README guidance.
+# Users should install them manually based on their CUDA version.
 # torch==2.0.1+cu117
 # torchvision==0.15.2+cu117
 # python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu117
+# pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128

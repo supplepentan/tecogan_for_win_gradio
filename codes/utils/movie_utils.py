@@ -85,7 +85,8 @@ def create_video_from_images(
         :param audio_path: 追加する音声ファイルのパス（デフォルトは None）。
         :param framerate: ビデオのフレームレート（デフォルトは30）。
     """
-    image_sequence = str(Path(output_path, image_dir, "%04d.png"))
+    # 修正点: パスの構築を修正 - image_dir とファイル名パターンを正しく結合
+    image_sequence = str(Path(image_dir) / "%04d.png")
     input_command = ffmpeg.input(image_sequence, framerate=framerate)
     output_kwargs = {"vcodec": "libx264", "pix_fmt": "yuv420p", "r": framerate}
 
@@ -183,7 +184,8 @@ def create_video_from_images(
         :param audio_path: 追加する音声ファイルのパス（デフォルトは None）。
         :param framerate: ビデオのフレームレート（デフォルトは30）。
     """
-    # 修正点: パスの構築を修正
+    # 修正点: パスの構築を修正 - image_dir とファイル名パターンを正しく結合
+    # Note: This is a duplicate function definition. Consider removing one.
     image_sequence = str(Path(image_dir) / "%04d.png")
 
     input_command = ffmpeg.input(image_sequence, framerate=framerate)
