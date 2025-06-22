@@ -1,0 +1,107 @@
+# Template for TecoGAN training configuration
+#
+# This file will be copied to your experiment directory when you run train.py for the first time.
+# Please edit the dataset paths in the copied file to match your environment.
+
+# general settings
+name: TecoGAN_Training
+model_type: VSRModel
+scale: 4
+gpu_ids: [0] # This will be overridden by the --gpu_ids argument in train.py
+
+# dataset and data loader settings
+dataset:
+  # Training dataset
+  train:
+    name: TecoGAN_train
+    type: VimeoTecoGAN # or REDS
+
+    # === IMPORTANT ===
+    # Set the path to your LMDB dataset file.
+    # See training_module/README.md on how to create this file from raw images.
+    lmdb_path: "D:/path/to/your/dataset/GT.lmdb"
+
+    n_frames: 7
+    patch_size: 64
+
+    use_flip: true
+    use_rot: true
+
+    batch_size: 8
+    num_worker: 8
+
+  # Validation dataset (optional, but recommended)
+  test_Vid4:
+    name: Vid4
+    type: Video_Test
+
+    # === IMPORTANT ===
+    # Set the path to your validation dataset (e.g., Vid4)
+    gt_path: "D:/path/to/your/Vid4/GT"
+    lr_path: "D:/path/to/your/Vid4/Gaussian4xLR" # or Bicubic4xLR for BI degradation
+
+    n_frames: ~ # use all frames
+
+# model settings
+model:
+  # generator
+  generator:
+    type: FRNet
+    in_channels: 3
+    out_channels: 3
+    n_feat: 64
+    n_block: 10
+
+    # To resume training from a pre-trained FRVSR model, uncomment and set the path
+    # load_path: 'path/to/pretrained/frvsr_model.pth'
+
+  # discriminator
+  discriminator:
+    type: SpatioTemporalDiscriminator
+    in_channels: 3
+    n_feat: 64
+
+# path
+path:
+  # pre-trained models, not needed for training from scratch
+  pretrain_model_G: ~
+  pretrain_model_D: ~
+
+  # where to save models and logs
+  exp_root: ~ # This is automatically set by the training script
+
+# training settings
+train:
+  # total number of training iterations
+  total_iter: 500000
+  start_iter: 0 # set to > 0 to resume training
+
+  # optimizer
+  optim_G:
+    type: Adam
+    lr: !!float 1e-4
+  optim_D:
+    type: Adam
+    lr: !!float 1e-4
+
+  # schedulers
+  scheduler:
+    type: MultiStepLR
+    milestones: [200000, 400000]
+    gamma: 0.5
+
+  # losses (weights can be adjusted)
+  pixel_crit: { type: CharbonnierLoss, loss_weight: !!float 1.0 }
+  feature_crit: { type: PerceptualLoss, loss_weight: !!float 1.0 }
+  gan_crit: { type: GANLoss, gan_type: vanilla, loss_weight: !!float 5e-3 }
+  pingpong_crit: { type: PingPongLoss, loss_weight: !!float 1.0 }
+
+# validation settings
+test:
+  test_freq: 5000
+  save_res: true
+
+# logging settings
+logger:
+  log_freq: 100
+  ckpt_freq: 5000

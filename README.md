@@ -19,10 +19,9 @@ browser app with only inference function using Gradio. Please refer to the offic
 ## Dependencies
 
 - Windows
-- NVIDIA GPU + CUDA 11.7
+- NVIDIA GPU + CUDA
 - Python >= 3.10
 - PyTorch >= 2.0
-- Python packages: numpy, matplotlib, opencv-python, pyyaml, lmdb, Gradio, PyYAML, scipy, scikit-image, tqdm, IPython
 
 ## Setting
 
@@ -51,3 +50,7 @@ python main.py
 ## Acknowledgements
 
 This code is built on [TecoGAN-PyTorch](https://github.com/skycrapers/TecoGAN-PyTorch), [TecoGAN-TensorFlow](https://github.com/thunil/TecoGAN), [BasicSR](https://github.com/xinntao/BasicSR) and [LPIPS](https://github.com/richzhang/PerceptualSimilarity). We thank the authors for sharing their codes.
+
+# training
+
+`python train.py BD MyModel --gpu_ids 0`
