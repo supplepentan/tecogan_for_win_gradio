@@ -19,3 +19,5 @@ pretrained_models/*.pth
 # Training Module
 training_module/datasets
 training_module/method.txt
+training_module/experiments_BD/MyCustomModel/train/train.log
+training_module/my_training_videos/my_video.mp4
