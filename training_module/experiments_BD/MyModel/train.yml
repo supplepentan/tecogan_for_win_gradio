@@ -1,0 +1,145 @@
+# basic configs
+scale: 4
+manual_seed: 0
+verbose: true
+
+# dataset configs
+dataset:
+  degradation:
+    type: BD
+    # sigma: 1.5 # You can adjust this if needed
+
+  train:
+    name: MyPairedFolder # Step 2で追加したデータセット名を指定
+    # ===================================================================
+    # IMPORTANT: Paths to your custom dataset folders.
+    # ===================================================================
+    # seq_dir: datasets/MyCustomDataset/GT.lmdb # LMDBは使わないのでコメントアウトまたは削除
+    hr_root: datasets/MyCustomDataset/HR # 高解像度(HR)画像のフォルダパス
+    lr_root: datasets/MyCustomDataset/LR # 低解像度(LR)画像のフォルダパス
+    filter_file: ~ # Use all data in the LMDB, so this is null
+    data_type: rgb
+    crop_size: 128
+    batch_size_per_gpu: 2
+    num_worker_per_gpu: 3
+    pin_memory: true
+
+  # This section is for validation during training.
+  # It uses the standard Vid4 dataset. You can leave it as is for now.
+  test:
+    name: Vid4
+    gt_seq_dir: data/Vid4/GT
+    lr_seq_dir: data/Vid4/Gaussian4xLR
+    filter_file: ~
+    num_worker_per_gpu: 3
+    pin_memory: true
+
+# model configs
+model:
+  name: TecoGAN
+
+  generator:
+    name: FRNet # frame-recurrent network
+    in_nc: 3
+    out_nc: 3
+    nf: 64
+    nb: 10
+    # We are training from scratch, so no pre-trained model is loaded.
+    load_path: ~
+
+  discriminator:
+    name: STNet # spatio-temporal network
+    in_nc: 3
+    tempo_range: 3
+    load_path: ~
+
+# training configs
+train:
+  tempo_extent: 10
+
+  start_iter: 0
+  total_iter: 500000 # Total training iterations
+
+  # configs for generator
+  generator:
+    lr: !!float 5e-5
+    lr_schedule:
+      type: FixedLR
+    betas: [0.9, 0.999]
+
+  # configs for discriminator
+  discriminator:
+    update_policy: adaptive
+    update_threshold: 0.4
+    crop_border_ratio: 0.75
+    lr: !!float 5e-5
+    lr_schedule:
+      type: FixedLR
+    betas: [0.9, 0.999]
+
+  # other configs
+  moving_first_frame: true
+  moving_factor: 0.7
+
+  # criterions (loss functions)
+  pixel_crit:
+    type: CB
+    weight: 1
+    reduction: mean
+
+  warping_crit:
+    type: CB
+    weight: 1
+    reduction: mean
+
+  feature_crit:
+    type: CosineSimilarity
+    weight: 0.2
+    reduction: mean
+    feature_layers: [8, 17, 26, 35]
+
+  pingpong_crit:
+    type: CB
+    weight: 0.5
+    reduction: mean
+
+  gan_crit:
+    type: GAN
+    weight: 0.01
+    reduction: mean
+
+# validation configs
+test:
+  # How often to run validation (in iterations).
+  # Set to 0 to disable validation if you don't have the Vid4 dataset.
+  test_freq: 0 # Was originally a higher number, e.g., 10000
+
+  # whether to save the generated SR results during validation
+  save_res: false
+  res_dir: ~
+
+  # whether to save the test results in a json file
+  save_json: true
+  json_dir: ~
+
+  padding_mode: reflect
+  num_pad_front: 5
+
+# metric configs
+metric:
+  PSNR:
+    colorspace: y
+  LPIPS:
+    model: net-lin
+    net: alex
+    colorspace: rgb
+    spatial: false
+    version: 0.1
+  tOF:
+    colorspace: y
+
+# logger configs
+logger:
+  log_freq: 100 # How often to print logs (in iterations)
+  decay: 0.99
+  ckpt_freq: 20000 # How often to save a model checkpoint (in iterations)

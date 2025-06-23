@@ -45,19 +45,21 @@ class TecoGanProcessor:
             str(self.input_movie_path)
         )
 
+        # 抽出した画像を入れるサブディレクトリを作成 (シーケンス名として動画ファイル名を使用)
+        # これにより、推論エンジンが画像を正しく見つけられるようになります。
+        sequence_dir = self.extracted_images_directory_path / self.input_movie_path.stem
+
         # 動画から画像の抽出
         movie_utils.extract_images_from_video(
             str(self.input_movie_path),
-            str(self.extracted_images_directory_path),
+            str(sequence_dir),  # 出力先をサブディレクトリに変更
             framerate=video_frame_rate,
         )
 
         # 画像ファイルが存在するか確認
-        images = list(Path(self.extracted_images_directory_path).glob("*.png"))
+        images = list(sequence_dir.glob("*.png"))
         if len(images) == 0:
-            raise FileNotFoundError(
-                f"No images found in directory {self.extracted_images_directory_path}"
-            )
+            raise FileNotFoundError(f"No images found in directory {sequence_dir}")
 
         movie_utils.extract_audio_from_video(
             str(self.input_movie_path), str(self.extracted_audio_path)
@@ -68,6 +70,8 @@ class TecoGanProcessor:
             str(self.resolved_images_directory_path),
             str(self.pretrained_model_path),
         )
+        # 推論の入力ディレクトリを、実際に画像を抽出したディレクトリの親に設定
+        opt["dataset"]["test"]["lr_seq_dir"] = str(self.extracted_images_directory_path)
         inference_utils.inference(opt)
 
         movie_utils.create_video_from_images(

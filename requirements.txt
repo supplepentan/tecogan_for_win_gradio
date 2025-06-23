@@ -1,9 +1,24 @@
-opencv-python
-gradio
-ffmpeg-python
-scipy
-scikit-image
-IPython
+# It is strongly recommended to specify versions for all packages to ensure reproducibility.
+# For example: package_name==1.2.3
+#
+# PyTorch and torchvision must be installed separately according to your CUDA version.
+# Please refer to README.md or https://pytorch.org/get-started/locally/ for instructions.
+
+numpy==1.26.4
+matplotlib==3.8.3
+opencv-python==4.9.0.80
+PyYAML==6.0.1 # or pyyaml, ensure consistency with your project's actual import
+lmdb==1.4.1
+gradio==4.19.0
+ffmpeg-python==0.2.0
+scipy==1.12.0
+scikit-image==0.22.0
+tqdm==4.66.1
+IPython==8.21.0
+omegaconf==2.3.0
+# PyTorch and torchvision installation lines are commented out as per README guidance.
+# Users should install them manually based on their CUDA version.
 # torch==2.0.1+cu117
 # torchvision==0.15.2+cu117
 # python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu117
+# pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128

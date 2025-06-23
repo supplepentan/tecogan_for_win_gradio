@@ -63,13 +63,20 @@ def inference(opt: Dict[str, Any]) -> None:
 
                 # 推論結果を保存
                 if opt["test"]["save_res"]:
-                    res_dir = Path(opt["test"]["res_dir"]) / ds_name
-                    print("res_dir:", res_dir)  # output\resolved_images
-                    res_seq_dir = res_dir / data["seq_idx"]
-                    print("data['seq_idx]:", data["seq_idx"])
-                    print("res_seq_dir:", res_seq_dir)  # output\resolved_images\input
+                    # Revert to using opt["test"]["res_dir"] as the base,
+                    # ensuring it's correctly set by TecoGanProcessor via base_utils.opt
+                    base_output_dir = Path(opt["test"]["res_dir"])
+                    res_dir = (
+                        base_output_dir / ds_name
+                    )  # ds_name should be "resolved_images"
+                    # res_seq_dir was defined but not used for save_sequence,
+                    # which takes res_dir directly.
+                    # print("res_dir for saving:", str(res_dir))
+                    # print("data['seq_idx'] (used for subfolder if res_seq_dir was used):", data["seq_idx"])
+
+                    # Ensure hr_seq is not None and contains data before saving
+                    # (Add checks for hr_seq content here if not done already)
                     data_utils.save_sequence(
                         str(res_dir), hr_seq, data["frm_idx"], to_bgr=True
                     )
-
             base_utils.log_info("-" * 40)  # 区切り線をログに出力
